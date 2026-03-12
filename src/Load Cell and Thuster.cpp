@@ -12,9 +12,11 @@ const int HX711_sck = 5; //mcu > HX711 sck pin
 const int button1Pin = 8;
 const int button2Pin = 7;
 
-int pwmValue = 0;
+int pwmValue = 128;
 int pwmDirection = 1;
 unsigned long lastPWM = 0;
+unsigned long lastPWMChange = 0;
+int pwmOut_1_freq = 20; //frequency in Hz of the PWM signal to be generated on pwmOut_1 pin, increase value to decrease frequency
 
 float bno080Data[3][3] = {{0,0,0},{0,0,0},{0,0,0}};
 
@@ -33,6 +35,8 @@ void setup() {
   pinMode(pwmOut_1, OUTPUT);
   pinMode(button1Pin, INPUT);
   pinMode(button2Pin, INPUT);
+
+  digitalWrite(pwmOut_1, LOW);
 
   Serial.begin(57600);
   Serial.println();
@@ -64,23 +68,23 @@ void setup() {
   // Serial.println(F("Raw Data Reads Enabled"));
   // Serial.println(F("Output is [[X, Y, Z], [Rot X, Rot Y, Rot Z], [Mag X, Mag Y, Mag Z]]"));
 
-  float calibrationValue; // calibration value
-  calibrationValue = 1.0; //696.0; // uncomment this if you want to set this value in the sketch
+  // float calibrationValue; // calibration value
+  // calibrationValue = 410.84; //696.0; // uncomment this if you want to set this value in the sketch
 
-  LoadCell.begin();
-  unsigned long stabilizingtime = 2000; // tare preciscion can be improved by adding a few seconds of stabilizing time
-  boolean _tare = true; //set this to false if you don't want tare to be performed in the next step
-  LoadCell.start(stabilizingtime, _tare);
-  if (LoadCell.getTareTimeoutFlag()) {
-    Serial.println("Timeout, check MCU>HX711 wiring and pin designations");
-    while (1);
-  }
-  else {
-    LoadCell.setCalFactor(calibrationValue); // set calibration value (float)
-    Serial.println("Startup is complete");
-  }
+  // LoadCell.begin();
+  // unsigned long stabilizingtime = 2000; // tare preciscion can be improved by adding a few seconds of stabilizing time
+  // boolean _tare = true; //set this to false if you don't want tare to be performed in the next step
+  // LoadCell.start(stabilizingtime, _tare);
+  // if (LoadCell.getTareTimeoutFlag()) {
+  //   Serial.println("Timeout, check MCU>HX711 wiring and pin designations");
+  //   while (1);
+  // }
+  // else {
+  //   LoadCell.setCalFactor(calibrationValue); // set calibration value (float)
+  //   Serial.println("Startup is complete");
+  // }
 
-  attachInterrupt(digitalPinToInterrupt(HX711_dout), loadCellDataReadyISR, FALLING);
+  // attachInterrupt(digitalPinToInterrupt(HX711_dout), loadCellDataReadyISR, FALLING);
 
 }
 
@@ -219,6 +223,20 @@ void changeSavedLCCalFactor() {
   Serial.println("***");
 }
 
+void pwmWrite(int pin, int duty_cycle, int frequency) {
+  int freqDelay = 1000/frequency;
+  unsigned int dutyTime = digitalRead(pin) == LOW ? ((duty_cycle/256.0)*freqDelay) : ((256-duty_cycle)/256.0)*freqDelay;
+  // Serial.print("freq: ");
+  // Serial.println(freqDelay);
+  // Serial.print("duty time: ");
+  // Serial.println(dutyTime);
+  unsigned long currentTime = millis();
+  if (currentTime - lastPWM >= dutyTime) {
+    lastPWM = currentTime;
+    digitalWrite(pin, !digitalRead(pin)); // Toggle the pin state
+  }
+}
+
 // void readIMU(){
 //   if (bno080.dataAvailable() == true){
 //     bno080Data[0][0] = bno080.getAccelX();
@@ -250,51 +268,40 @@ void changeSavedLCCalFactor() {
 void loop() {
   const int serialPrintInterval = 1000; //increase value to slow down serial print activity
 
-  // get smoothed value from the dataset:
-  if (newDataReady) {
-    if (millis() > t + serialPrintInterval) {
-      float i = LoadCell.getData();
-      newDataReady = 0;
-      Serial.print("Load_cell output val: ");
-      Serial.println(i);
-      //Serial.print("  ");
-      //Serial.println(millis() - t);
-      t = millis();
-    }
-  }
+  // if (Serial.available() > 0) {
+  //   char inByte = Serial.read();
+  //   if (inByte == 't') LoadCell.tareNoDelay();
+  //   else if (inByte == 'r') calibrateLC(); //calibrate
+  //   else if (inByte == 'c') changeSavedLCCalFactor(); //edit calibration value manually
+  // }
 
-  if (Serial.available() > 0) {
-    char inByte = Serial.read();
-    if (inByte == 't') LoadCell.tareNoDelay();
-    else if (inByte == 'r') calibrateLC(); //calibrate
-    else if (inByte == 'c') changeSavedLCCalFactor(); //edit calibration value manually
-  }
+  // //check if last tare operation is complete
+  // if (LoadCell.getTareStatus() == true) {
+  //   Serial.println("Tare complete");
+  // }
 
-  //check if last tare operation is complete
-  if (LoadCell.getTareStatus() == true) {
-    Serial.println("Tare complete");
-  }
+  // int button1State = digitalRead(button1Pin);
+  // int button2State = digitalRead(button2Pin);
 
-  int button1State = digitalRead(button1Pin);
-  int button2State = digitalRead(button2Pin);
-
-  if (button1State == LOW) {
-    analogWrite(pwmOut_1, pwmValue);
-  } else {
-    analogWrite(pwmOut_1, 0);
-  }
+  // if (button1State == HIGH) {
+  //   analogWrite(pwmOut_1, pwmValue);
+  // } else {
+  //   analogWrite(pwmOut_1, 0);
+  // }
   // if (button2State == HIGH) {
   //   analogWrite(pwmOut_2, 0);
   // }
 
-  if (millis() - lastPWM >= 100) {
-    lastPWM = millis();
+  pwmWrite(pwmOut_1, pwmValue, pwmOut_1_freq);
+
+  if (millis() - lastPWMChange >= 100) {
+    lastPWMChange = millis();
     pwmValue+=5*pwmDirection;
     if (pwmValue >= 255 || pwmValue <= 0) {
       pwmDirection*=-1;
       pwmValue = max(0, min(255, pwmValue));
     }
-    // Serial.print("PWM value: ");
-    // Serial.println(pwmValue);
+    Serial.print("PWM value: ");
+    Serial.println(pwmValue);
   }
 }
