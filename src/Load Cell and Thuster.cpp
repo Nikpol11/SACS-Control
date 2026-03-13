@@ -16,7 +16,9 @@ int pwmValue = 128;
 int pwmDirection = 1;
 unsigned long lastPWM = 0;
 unsigned long lastPWMChange = 0;
-int pwmOut_1_freq = 20; //frequency in Hz of the PWM signal to be generated on pwmOut_1 pin, increase value to decrease frequency
+int pwmOut_1_freq = 5; //frequency in Hz of the PWM signal to be generated on pwmOut_1 pin, increase value to decrease frequency
+
+boolean thrusterFire = false;
 
 float bno080Data[3][3] = {{0,0,0},{0,0,0},{0,0,0}};
 
@@ -68,23 +70,23 @@ void setup() {
   // Serial.println(F("Raw Data Reads Enabled"));
   // Serial.println(F("Output is [[X, Y, Z], [Rot X, Rot Y, Rot Z], [Mag X, Mag Y, Mag Z]]"));
 
-  // float calibrationValue; // calibration value
-  // calibrationValue = 410.84; //696.0; // uncomment this if you want to set this value in the sketch
+  float calibrationValue; // calibration value
+  calibrationValue = 410.84; //696.0; // uncomment this if you want to set this value in the sketch
 
-  // LoadCell.begin();
-  // unsigned long stabilizingtime = 2000; // tare preciscion can be improved by adding a few seconds of stabilizing time
-  // boolean _tare = true; //set this to false if you don't want tare to be performed in the next step
-  // LoadCell.start(stabilizingtime, _tare);
-  // if (LoadCell.getTareTimeoutFlag()) {
-  //   Serial.println("Timeout, check MCU>HX711 wiring and pin designations");
-  //   while (1);
-  // }
-  // else {
-  //   LoadCell.setCalFactor(calibrationValue); // set calibration value (float)
-  //   Serial.println("Startup is complete");
-  // }
+  LoadCell.begin();
+  unsigned long stabilizingtime = 2000; // tare preciscion can be improved by adding a few seconds of stabilizing time
+  boolean _tare = true; //set this to false if you don't want tare to be performed in the next step
+  LoadCell.start(stabilizingtime, _tare);
+  if (LoadCell.getTareTimeoutFlag()) {
+    Serial.println("Timeout, check MCU>HX711 wiring and pin designations");
+    while (1);
+  }
+  else {
+    LoadCell.setCalFactor(calibrationValue); // set calibration value (float)
+    Serial.println("Startup is complete");
+  }
 
-  // attachInterrupt(digitalPinToInterrupt(HX711_dout), loadCellDataReadyISR, FALLING);
+  attachInterrupt(digitalPinToInterrupt(HX711_dout), loadCellDataReadyISR, FALLING);
 
 }
 
@@ -268,17 +270,30 @@ void pwmWrite(int pin, int duty_cycle, int frequency) {
 void loop() {
   const int serialPrintInterval = 1000; //increase value to slow down serial print activity
 
-  // if (Serial.available() > 0) {
-  //   char inByte = Serial.read();
-  //   if (inByte == 't') LoadCell.tareNoDelay();
-  //   else if (inByte == 'r') calibrateLC(); //calibrate
-  //   else if (inByte == 'c') changeSavedLCCalFactor(); //edit calibration value manually
-  // }
+  if (Serial.available() > 0) {
+    char inByte = Serial.read();
+    if (inByte == 't') LoadCell.tareNoDelay();
+    else if (inByte == 'r') calibrateLC(); //calibrate
+    else if (inByte == 'c') changeSavedLCCalFactor(); //edit calibration value manually
+    else if (inByte == 'f') thrusterFire = !thrusterFire;
+  }
 
-  // //check if last tare operation is complete
-  // if (LoadCell.getTareStatus() == true) {
-  //   Serial.println("Tare complete");
-  // }
+  //check if last tare operation is complete
+  if (LoadCell.getTareStatus() == true) {
+    Serial.println("Tare complete");
+  }
+
+  if (newDataReady) {
+    if (millis() > t + serialPrintInterval) {
+      float i = LoadCell.getData();
+      newDataReady = 0;
+      Serial.print("Load_cell output val: ");
+      Serial.println(i);
+      //Serial.print("  ");
+      //Serial.println(millis() - t);
+      t = millis();
+    }
+  }
 
   // int button1State = digitalRead(button1Pin);
   // int button2State = digitalRead(button2Pin);
@@ -292,7 +307,11 @@ void loop() {
   //   analogWrite(pwmOut_2, 0);
   // }
 
-  pwmWrite(pwmOut_1, pwmValue, pwmOut_1_freq);
+  if (thrusterFire) {
+    pwmWrite(pwmOut_1, pwmValue, pwmOut_1_freq);
+  } else {
+    digitalWrite(pwmOut_1, LOW);
+  }
 
   if (millis() - lastPWMChange >= 100) {
     lastPWMChange = millis();
@@ -301,7 +320,7 @@ void loop() {
       pwmDirection*=-1;
       pwmValue = max(0, min(255, pwmValue));
     }
-    Serial.print("PWM value: ");
-    Serial.println(pwmValue);
+    // Serial.print("PWM value: ");
+    // Serial.println(pwmValue);
   }
 }
