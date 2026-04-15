@@ -1,17 +1,21 @@
 #include "IMU.h"
-#include "LoadCell.h"
+// #include "LoadCell.h"
 #include "Thruster.h"
 
-bool thrusterArm = false;
-LoadCell LC = LoadCell();
+bool thrusterArm = true;
+// LoadCell LC = LoadCell();
 BNO080_IMU imu = BNO080_IMU();
 PWM_Thruster thrusters[2];
 unsigned long t = millis();
 bool loadCellEnable = true;
 float nozzleMomentArm = 0.1; // Nozzle moment arm length in meters (adjust as needed)
+u_int16_t solenoid1_pin = 3; // Pin for thruster 1
+u_int16_t solenoid2_pin = 4; // Pin for thruster 2
 
 void setup()
 {
+    // while (!Serial)
+    //     delay(10);
     Serial.begin(57600);
     Serial.println();
     Serial.println("SACS IMU, Load Cell, and Thruster Test");
@@ -23,11 +27,11 @@ void setup()
     imu.begin(50); // send interval of 50ms for IMU data updates
 
     // Initialize Load Cell with a calibration value (adjust as needed)
-    LC.begin(410.84);
+    // LC.begin(410.84);
 
     // Initialize Thrusters
-    thrusters[0] = PWM_Thruster(9, 0, 5, 1.0);
-    thrusters[1] = PWM_Thruster(10, 0, 5, 1.0);
+    thrusters[0] = PWM_Thruster(solenoid1_pin, 0, 5, 1.0);
+    thrusters[1] = PWM_Thruster(solenoid2_pin, 0, 5, 1.0);
 }
 
 void serialIO()
@@ -37,28 +41,33 @@ void serialIO()
     if (Serial.available() > 0)
     {
         char inByte = Serial.read();
-        if (inByte == 't')
-            LC.tareLoadCell();
-        else if (inByte == 'r')
-            LC.calibrateLC(); // calibrate
-        else if (inByte == 'c')
-            LC.changeSavedLCCalFactor(); // edit calibration value manually
-        else if (inByte == 'a')
+        // if (inByte == 't')
+        //     LC.tareLoadCell();
+        // else if (inByte == 'r')
+        //     LC.calibrateLC(); // calibrate
+        // else if (inByte == 'c')
+        //     LC.changeSavedLCCalFactor(); // edit calibration value manually
+        // else if (inByte == 'a')
+        if (inByte == 'a')
         {
-            Serial.println("Thrusters Armed");
             thrusterArm = !thrusterArm;
             for (auto &thruster : thrusters)
             {
                 if (!thrusterArm)
+                {
+                    Serial.println("Thrusters disarmed. Stopping all thrusters immediately...");
                     thruster.stopThruster(); // Stop thruster immediately if disarming
+                }
+                else
+                    Serial.println("Thrusters armed. Ready to fire.");
             }
         }
-        else if (inByte == 'l')
-        {
-            loadCellEnable = !loadCellEnable;
-            Serial.print("Load Cell Enabled: ");
-            Serial.println(loadCellEnable);
-        }
+        // else if (inByte == 'l')
+        // {
+        //     loadCellEnable = !loadCellEnable;
+        //     Serial.print("Load Cell Enabled: ");
+        //     Serial.println(loadCellEnable);
+        // }
         else if (inByte == 'm')
         {
             for (auto &thruster : thrusters)
@@ -78,10 +87,11 @@ void serialIO()
     if (millis() > t + serialPrintInterval)
     {
         imu.printIMU();
-        if (loadCellEnable)
-        {
-            LC.printLoadCellValue();
-        }
+        t = millis();
+        // if (loadCellEnable)
+        // {
+        //     LC.printLoadCellValue();
+        // }
     }
 }
 
@@ -110,32 +120,40 @@ float calculateDesiredThrust(float desiredTheta, float currentTheta,
     return u / nozzleMomentArm; // return the desired thrust based on the control output and the nozzle moment arm
 }
 
-void loop()
+void fireThrusters()
 {
-    serialIO();
-    if (thrusterArm)
+    float desiredThrust = calculateDesiredThrust(0, readTheta(), readThetaDot(), 0, 0.002, 0.002); // Example: desired angle is 0 radians
+    if (desiredThrust > 0)
     {
-        float desiredThrust = calculateDesiredThrust(0, readTheta(), readThetaDot()); // Example: desired angle is 0 radians
-        if (desiredThrust > 0)
+        // Serial.println("Firing Thruster 1 with Desired Thrust: " + String(desiredThrust));
+        thrusters[0].fireThruster(desiredThrust); // Fire thruster 1 with the desired thrust
+        thrusters[1].stopThruster();              // Ensure thruster 2 is stopped
+    }
+    else if (desiredThrust < 0)
+    {
+        // Serial.println("Firing Thruster 2 with Desired Thrust: " + String(desiredThrust));
+        thrusters[1].fireThruster(desiredThrust); // Fire thruster 2 with the desired thrust (negate for opposite direction)
+        thrusters[0].stopThruster();              // Ensure thruster 1 is stopped
+    }
+    else
+    {
+        for (auto &thruster : thrusters)
         {
-            thrusters[0].fireThruster(desiredThrust); // Fire thruster 1 with the desired thrust
-            thrusters[1].stopThruster();                // Ensure thruster 2 is stopped
-        }
-        else if (desiredThrust < 0)
-        {
-            thrusters[1].fireThruster(desiredThrust); // Fire thruster 2 with the desired thrust (negate for opposite direction)
-            thrusters[0].stopThruster();                // Ensure thruster 1 is stopped
-        }
-        else
-        {
-            for (auto &thruster : thrusters)
-            {
-                thruster.stopThruster(); // Stop both thrusters if desired thrust is zero
-            }
+            thruster.stopThruster(); // Stop both thrusters if desired thrust is zero
         }
     }
     for (auto &thruster : thrusters)
     {
         thruster.writePWM(); // Update the PWM signal for each thruster
+    }
+}
+
+void loop()
+{
+    imu.readIMU();
+    serialIO();
+    if (thrusterArm)
+    {
+        fireThrusters();
     }
 }

@@ -225,7 +225,7 @@ void changeSavedLCCalFactor()
 void pwmWrite(int pin, int duty_cycle, int frequency)
 {
   int freqDelay = 1000 / frequency;
-  unsigned int dutyTime = digitalRead(pin) == LOW ? ((duty_cycle / 256.0) * freqDelay) : ((256 - duty_cycle) / 256.0) * freqDelay;
+  unsigned int dutyTime = digitalRead(pin) == HIGH ? ((duty_cycle / 256.0) * freqDelay) : ((256 - duty_cycle) / 256.0) * freqDelay;
   unsigned long currentTime = millis();
   if (currentTime - lastPWM >= dutyTime)
   {

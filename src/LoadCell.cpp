@@ -118,19 +118,19 @@ void LoadCell::calibrateLC()
             char inByte = Serial.read();
             if (inByte == 'y')
             {
-#if defined(ESP8266) || defined(ESP32)
-                EEPROM.begin(512);
-#endif
-                EEPROM.put(calVal_eepromAdress, newCalibrationValue);
-#if defined(ESP8266) || defined(ESP32)
-                EEPROM.commit();
-#endif
-                EEPROM.get(calVal_eepromAdress, newCalibrationValue);
-                Serial.print("Value ");
-                Serial.print(newCalibrationValue);
-                Serial.print(" saved to EEPROM address: ");
-                Serial.println(calVal_eepromAdress);
-                _resume = true;
+// #if defined(ESP8266) || defined(ESP32)
+//                 EEPROM.begin(512);
+// #endif
+//                 EEPROM.put(calVal_eepromAdress, newCalibrationValue);
+// #if defined(ESP8266) || defined(ESP32)
+//                 EEPROM.commit();
+// #endif
+//                 EEPROM.get(calVal_eepromAdress, newCalibrationValue);
+//                 Serial.print("Value ");
+//                 Serial.print(newCalibrationValue);
+//                 Serial.print(" saved to EEPROM address: ");
+//                 Serial.println(calVal_eepromAdress);
+//                 _resume = true;
             }
             else if (inByte == 'n')
             {
@@ -181,24 +181,24 @@ void LoadCell::changeSavedLCCalFactor()
             char inByte = Serial.read();
             if (inByte == 'y')
             {
-#if defined(ESP8266) || defined(ESP32)
-                EEPROM.begin(512);
-#endif
-                EEPROM.put(calVal_eepromAdress, newCalibrationValue);
-#if defined(ESP8266) || defined(ESP32)
-                EEPROM.commit();
-#endif
-                EEPROM.get(calVal_eepromAdress, newCalibrationValue);
-                Serial.print("Value ");
-                Serial.print(newCalibrationValue);
-                Serial.print(" saved to EEPROM address: ");
-                Serial.println(calVal_eepromAdress);
-                _resume = true;
-            }
-            else if (inByte == 'n')
-            {
-                Serial.println("Value not saved to EEPROM");
-                _resume = true;
+// #if defined(ESP8266) || defined(ESP32)
+//                 EEPROM.begin(512);
+// #endif
+//                 EEPROM.put(calVal_eepromAdress, newCalibrationValue);
+// #if defined(ESP8266) || defined(ESP32)
+//                 EEPROM.commit();
+// #endif
+//                 EEPROM.get(calVal_eepromAdress, newCalibrationValue);
+//                 Serial.print("Value ");
+//                 Serial.print(newCalibrationValue);
+//                 Serial.print(" saved to EEPROM address: ");
+//                 Serial.println(calVal_eepromAdress);
+//                 _resume = true;
+//             }
+//             else if (inByte == 'n')
+//             {
+//                 Serial.println("Value not saved to EEPROM");
+//                 _resume = true;
             }
         }
     }

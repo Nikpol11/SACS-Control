@@ -11,7 +11,7 @@ public:
     void readIMU();
     void printIMU();
 
-    float bno080Data[3][3];
+    float bno080Data[4][3];
 
 private:
     BNO080 bno080;

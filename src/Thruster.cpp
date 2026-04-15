@@ -67,8 +67,13 @@ void PWM_Thruster::stopThruster()
 
 void PWM_Thruster::writePWM()
 {
+    if (pwmValue == 0)
+    {
+        digitalWrite(pin, LOW); // Ensure pin is LOW when PWM value is 0
+        return;
+    }
     int freqDelay = 1000 / pwmOutfreq;
-    unsigned int dutyTime = digitalRead(pin) == LOW ? ((pwmValue / 256.0) * freqDelay) : ((256 - pwmValue) / 256.0) * freqDelay;
+    unsigned int dutyTime = digitalRead(pin) == HIGH ? ((pwmValue / 256.0) * freqDelay) : ((256 - pwmValue) / 256.0) * freqDelay;
     unsigned long currentTime = millis();
     if (currentTime - lastPWM >= dutyTime)
     {

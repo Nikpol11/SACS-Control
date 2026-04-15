@@ -47,18 +47,21 @@ void BNO080_IMU::readIMU()
         bno080Data[2][1] = bno080.getMagY();
         bno080Data[2][2] = bno080.getMagZ();
 
-        bno080Data[3][0] = bno080.getYaw();
-        bno080Data[3][1] = bno080.getPitch();
-        bno080Data[3][2] = bno080.getRoll();
+        bno080Data[3][0] = bno080.getYaw()   / PI * 180;
+        bno080Data[3][1] = bno080.getPitch() / PI * 180;
+        bno080Data[3][2] = bno080.getRoll()  / PI * 180;
     }
 }
 
 void BNO080_IMU::printIMU()
 {
     readIMU();
-    Serial.print("Load Cell Value: ");
+    Serial.print("IMU Data: ");
+    String labels[4] = {"Accel", "Gyro", "Mag", "Attitude"};
     for (int i = 0; i < 4; i++)
     {
+        Serial.print(labels[i]);
+        Serial.print(": ");
         for (int j = 0; j < 3; j++)
         {
             Serial.print(bno080Data[i][j]);
